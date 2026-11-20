@@ -16,11 +16,11 @@ Cách thông thường để sửa là **fine-tune**: gom dữ liệu, thuê GPU
 
 Mục tiêu: **làm trò cư xử giống thầy hơn, chỉ bằng cách sửa weight.**
 
-## Ý tưởng: "thói quen" của model là một mũi tên
+## Ý tưởng: mỗi "thói quen" của model có một hướng riêng
 
-Bên trong một LLM, mỗi từ khi đi qua các tầng sẽ được biểu diễn thành một dãy số rất dài, có thể hình dung như một điểm trong không gian nhiều chiều. Các nhà nghiên cứu phát hiện ra rằng nhiều "thói quen" của model, như nói ngôn ngữ nào, giọng vui hay buồn, có từ chối hay không, ứng với **một hướng (một mũi tên)** trong không gian đó. Hướng này được tạo bởi cả một dải neuron cùng "rung" theo một kiểu nhất định. Tôi gọi vui nó là **"mạch thói quen"**.
+Bên trong một LLM, mỗi từ khi đi qua các tầng sẽ được biểu diễn thành một dãy số rất dài, có thể hình dung như một điểm trong không gian nhiều chiều. Các nhà nghiên cứu phát hiện ra rằng nhiều "thói quen" của model, như nói ngôn ngữ nào, giọng vui hay buồn, có từ chối hay không, ứng với **một hướng** trong không gian đó. Hướng này được tạo bởi cả một dải neuron cùng "rung" theo một kiểu nhất định. Tôi gọi vui nó là **"mạch thói quen"**.
 
-Đẩy biểu diễn theo mũi tên thì thói quen mạnh lên, đẩy ngược lại thì yếu đi. Giống như một **núm vặn**. Một vài "mạch" mà giới nghiên cứu đã tìm ra:
+Đẩy biểu diễn theo hướng đó thì thói quen mạnh lên, đẩy theo chiều ngược lại thì yếu đi. Giống như một **núm vặn**. Một vài "mạch" mà giới nghiên cứu đã tìm ra:
 
 | Mạch thói quen | Vặn lên thì model... | Vặn xuống thì model... |
 |---|---|---|
@@ -39,7 +39,7 @@ Vậy kế hoạch là:
 
 ## Bước 1: Tìm tầng mà hai model "nghĩ giống nhau"
 
-Hai model khác nhau hoàn toàn: khác hãng, khác kiến trúc, khác số tầng (24 vs 18), khác độ dài dãy số (2048 vs 640). Không thể bê mũi tên từ thầy sang trò một cách tùy tiện được.
+Hai model khác nhau hoàn toàn: khác hãng, khác kiến trúc, khác số tầng (24 vs 18), khác độ dài dãy số (2048 vs 640). Không thể bê nguyên mạch thói quen của thầy sang trò được.
 
 Nên trước tiên tôi cho cả hai cùng đọc một đống văn bản tiếng Việt, rồi so xem **tầng nào của thầy giống tầng nào của trò nhất**:
 
@@ -47,16 +47,16 @@ Nên trước tiên tôi cho cả hai cùng đọc một đống văn bản ti�
 
 Có một điểm sáng rất rõ: **tầng 21 của LFM3 ↔ tầng 16 của Gemma**. Cả hai đều nằm ở khoảng 85–90% chiều sâu của model. Hai model của hai hãng khác nhau mà lại "suy nghĩ" giống nhau nhất ở cùng một vị trí tương đối. Tôi thấy chi tiết này khá thú vị.
 
-Từ đó tôi dựng một "bộ từ điển" (một phép biến đổi tuyến tính đơn giản) để dịch mũi tên từ thầy sang trò.
+Từ đó tôi dựng một "bộ từ điển" (một phép biến đổi tuyến tính đơn giản) để dịch mạch thói quen từ thầy sang trò.
 
 ## Bước 2: Cái bẫy của Gemma 3
 
-Cách "sách giáo khoa" là cộng mũi tên vào đầu ra của khối MLP trong tầng đó. Nhưng làm vậy với Gemma 3 thì hỏng.
+Cách "sách giáo khoa" là cấy mạch này vào đầu ra của khối MLP trong tầng đó. Nhưng làm vậy với Gemma 3 thì hỏng.
 
 :::caution[Gemma 3 có thêm một lớp "chuẩn hóa" sau MLP]
-Gemma 3 chuẩn hóa lại đầu ra của MLP trước khi cộng vào dòng chảy chính. Bạn cộng mũi tên vào trước lớp này thì nó bị "nắn" lại, mỗi từ một kiểu, và không còn đúng hướng nữa.
+Gemma 3 chuẩn hóa lại đầu ra của MLP trước khi cộng vào dòng chảy chính. Cấy mạch vào trước lớp này thì nó bị "nắn" lại, mỗi từ một kiểu, và lệch khỏi hướng ban đầu.
 
-Cách sửa: ghi mũi tên vào **sau** lớp chuẩn hóa đó.
+Cách sửa: cấy mạch vào **sau** lớp chuẩn hóa đó.
 :::
 
 Kết quả cuối cùng là chỉ **640 con số** được cộng thêm vào Gemma, trên tổng số 268 triệu, tức khoảng **0,0002%**. Muốn gỡ thì trừ đi là Gemma trở về y như cũ, không sai một bit.
@@ -100,16 +100,16 @@ Model đã chịu nói tiếng Việt, nhưng không vì thế mà khôn hơn: n
 
 Cộng một dãy số bất kỳ vào model thì kiểu gì hành vi cũng thay đổi ít nhiều. Nên tôi kiểm thêm hai việc:
 
-![Cộng thì tăng, trừ thì giảm, và vector ngẫu nhiên không làm được](./dose-controls.png)
+![Cấy vào thì tăng, cấy ngược thì giảm, còn vector ngẫu nhiên không làm được](./dose-controls.png)
 
-- **Vặn núm hai chiều:** cộng mũi tên thì tỉ lệ tiếng Việt tăng, trừ đi thì tụt hẳn. Nó đúng là một núm vặn.
-- **So với vector ngẫu nhiên:** tôi thử 10 vector ngẫu nhiên có cùng độ lớn. Không cái nào làm được như mũi tên học từ thầy; đa số còn làm kết quả tệ đi. *(Các chấm xám trong hình là minh họa.)*
+- **Vặn núm hai chiều:** cấy mạch vào thì tỉ lệ tiếng Việt tăng, cấy ngược chiều thì tụt hẳn. Nó đúng là một núm vặn.
+- **So với vector ngẫu nhiên:** tôi thử 10 vector ngẫu nhiên có cùng độ lớn. Không cái nào làm được như mạch học từ thầy; đa số còn làm kết quả tệ đi. *(Các chấm xám trong hình là minh họa.)*
 
-Kiểm chứng thứ ba là cái tôi thích nhất. Google có công bố một bộ công cụ "soi" bên trong Gemma, gọi là **Gemma Scope**. Nó tách những gì Gemma đang "nghĩ" thành khoảng 16 nghìn "khái niệm" có nghĩa. Tôi đem mũi tên đã cấy ra so với từng khái niệm:
+Kiểm chứng thứ ba là cái tôi thích nhất. Google có công bố một bộ công cụ "soi" bên trong Gemma, gọi là **Gemma Scope**. Nó tách những gì Gemma đang "nghĩ" thành khoảng 16 nghìn "khái niệm" có nghĩa. Tôi đem mạch đã cấy ra so với từng khái niệm:
 
-![Mũi tên đã cấy trùng với khái niệm "tiếng Việt" của Gemma](./sae-821.png)
+![Mạch đã cấy trùng với khái niệm "tiếng Việt" của Gemma](./sae-821.png)
 
-Khái niệm khớp nhất, **hạng 1 trên hơn 16 nghìn**, chính là **"đang nói tiếng Việt"**. Mũi tên dịch từ LFM3 sang đã tự tìm đúng tới khái niệm tiếng Việt có sẵn trong đầu Gemma, dù không ai chỉ cho nó cả.
+Khái niệm khớp nhất, **hạng 1 trên hơn 16 nghìn**, chính là **"đang nói tiếng Việt"**. Mạch dịch từ LFM3 sang đã tự tìm đúng tới khái niệm tiếng Việt có sẵn trong đầu Gemma, dù không ai chỉ cho nó cả.
 
 ## Những gì KHÔNG làm được
 
@@ -118,24 +118,15 @@ Phần này quan trọng không kém. Tôi đã thử nhiều thói quen khác v
 | Thử chuyển | Kết quả | Vì sao |
 |---|---|---|
 | Hỏi tiếng Việt → đáp tiếng Việt | ❌ | Gemma đã làm đúng 97% sẵn, không còn gì để cải thiện |
-| Giọng lễ phép ("Dạ", "ạ"...) | ❌ | Tìm được mũi tên nhưng vặn thế nào hành vi cũng không đổi |
-| Viết tiếng Việt trôi chảy hơn | ❌ | Không có một mũi tên duy nhất, nó nằm rải rác khắp model |
+| Giọng lễ phép ("Dạ", "ạ"...) | ❌ | Tìm được mạch nhưng vặn thế nào hành vi cũng không đổi |
+| Viết tiếng Việt trôi chảy hơn | ❌ | Không gói gọn trong một mạch nào, nó nằm rải rác khắp model |
 | Kiến thức tiếng Việt | ❌ | Hai model biết ngang nhau, chẳng có gì để chuyển |
 | **Nghe lời khi được dặn trả lời tiếng Việt** | ✅ | tăng khoảng 7 điểm |
 
-:::danger[Một điểm chưa chắc chắn]
-Tôi đo thêm 4 bài kiểm tra năng lực chung, mỗi bài khoảng 250 câu:
-
-- **Kiến thức phổ thông (ARC-Easy):** sai thêm khoảng 4 câu trên 250.
-- **Làm theo hướng dẫn (IFEval, 45 câu):** sai thêm 1 câu.
-- **Hai bài suy luận thường thức (HellaSwag, PIQA):** gần như không đổi, một bài còn nhỉnh lên.
-
-Không mức giảm nào đủ lớn để chắc chắn không phải nhiễu. Nhưng tiêu chuẩn tôi tự đặt từ trước khá khắt khe (không được giảm quá 1 điểm), và bản sửa chưa qua được. Nên kết luận trung thực là: **thói quen thì chuyển được, còn "có tốn chút năng lực nào không" thì chưa dám nói là không.**
-:::
 
 ## Rút ra được gì?
 
-**1. Sửa weight bằng tay chuyển được "thói quen", không chuyển được "trí khôn".** Những việc model nhỏ *làm được* nhưng *không chịu làm* (nghe lời dặn, chọn ngôn ngữ) thì một mũi tên nhỏ là đủ đẩy. Còn kiến thức hay kỹ năng thì không nằm gọn trên một mũi tên nào, muốn có thì vẫn phải train.
+**1. Sửa weight bằng tay chuyển được "thói quen", không chuyển được "trí khôn".** Những việc model nhỏ *làm được* nhưng *không chịu làm* (nghe lời dặn, chọn ngôn ngữ) thì cấy một mạch nhỏ là đủ đẩy. Còn kiến thức hay kỹ năng thì không gói gọn trong một mạch nào, muốn có thì vẫn phải train.
 
 **2. Rẻ đến bất ngờ.** Không có vòng train nào. Phần cứng chỉ là một card RTX 5060 Ti 16 GB. Bản sửa chỉ là một file 640 con số, gỡ ra trong một nốt nhạc.
 
