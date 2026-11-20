@@ -51,6 +51,8 @@ Từ đó tôi dựng một "bộ từ điển" (một phép biến đổi tuy�
 
 ## Bước 2: Cái bẫy của Gemma 3
 
+![Kiến trúc Gemma-3-270M-it và chỗ cấy mạch thói quen](./gemma3-arch.png)
+
 Cách "sách giáo khoa" là cấy mạch này vào đầu ra của khối MLP trong tầng đó. Nhưng làm vậy với Gemma 3 thì hỏng.
 
 :::caution[Gemma 3 có thêm một lớp "chuẩn hóa" sau MLP]
@@ -58,6 +60,8 @@ Gemma 3 chuẩn hóa lại đầu ra của MLP trước khi cộng vào dòng ch
 
 Cách sửa: cấy mạch vào **sau** lớp chuẩn hóa đó.
 :::
+
+![Cấy mạch trước lớp chuẩn hóa thì bị nắn lệch, cấy sau thì giữ nguyên hướng](./gemma3-trap.png)
 
 Kết quả cuối cùng là chỉ **640 con số** được cộng thêm vào Gemma, trên tổng số 268 triệu, tức khoảng **0,0002%**. Muốn gỡ thì trừ đi là Gemma trở về y như cũ, không sai một bit.
 
