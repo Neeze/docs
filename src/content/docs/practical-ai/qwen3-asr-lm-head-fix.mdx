@@ -1,0 +1,58 @@
+---
+title: 'Sửa đúng 1.024 con số, model ASR bớt viết tiếng Việt thành chữ Thái'
+description: Không tắt được neuron 128 bằng cách sửa weight, mình chuyển sang sửa ngay ở cửa ra. Một hàng của lm_head, 1.024 con số, và kết quả trên tập test khóa.
+sidebar:
+  order: 2
+---
+
+[Bài trước](../qwen3-asr-neuron-128/) mình kể chuyện Qwen3-ASR-0.6B nghe câu "xin chào gia đình Tanaka" rồi viết ra `ชินแจว จาริน ตาณกา`, và chuyện ức chế neuron 128 bằng hook thì đẹp, mà ghi vào weight thì hỏng.
+
+Bí quá, mình đổi câu hỏi. Thay vì cố tắt thứ gì đó bên trong, sao không sửa ngay ở cửa ra?
+
+## Sửa ở cửa ra
+
+Qwen3-ASR sinh thẻ ngôn ngữ trước khi chép lời, kiểu `language Vietnamese<asr_text>...`. Lỗi của mình nằm đúng ở thẻ này. Mà token ` Vietnamese` gần như chỉ có việc ở bước đó, nó không phải từ mà model cần dùng khi chép lời tiếng Việt.
+
+Nên bản sửa rất gọn: **đổi một hàng của `lm_head`**, hàng ứng với token ` Vietnamese`.
+
+- 1.024 con số, khoảng 0,00013% tham số của model
+- Không train lại, không gradient
+- Hướng sửa lấy từ trạng thái trung bình của model ở bước chọn thẻ ngôn ngữ
+
+## Kết quả
+
+Mình giữ riêng một tập test, khóa lại tới cuối mới mở. Kết quả:
+
+| | Trước | Sau |
+| --- | --- | --- |
+| WER trên FOSD | 15,95% | **15,34%** |
+| Số câu sai ngôn ngữ | 14 | **3** |
+
+Khoảng tin cậy 95% của mức thay đổi WER là [-1,11; -0,19] điểm, nên không chạm 0. Ba tập còn lại gần như đứng yên: ViMD +0,02, ViMedCSS +0,11, VietMed -0,10 điểm.
+
+## Giờ tới phần phải nói cho thật 😅
+
+**Nó không miễn phí.** Trên FOSD, có 16 câu lỗi tốt lên và 1 câu xấu đi, nhưng 3/179 câu vốn đúng lại bị hỏng.
+
+**Hiệu ứng nhỏ.** WER chỉ giảm 0,61 điểm, trên một tập, vì lỗi này vốn chỉ chiếm 2 đến 3% số câu. Phần lớn lỗi còn lại là model chưa học tới, sửa kiểu này không cứu được.
+
+**Có cách rẻ hơn.** Truyền `language="Vietnamese"` khi gọi model cũng đạt mức này trên FOSD, chỉ cần một dòng code. Nếu bạn biết chắc audio là tiếng Việt, cứ dùng cách đó. Điểm khác là nó làm ViMedCSS, tập có nhiều thuật ngữ tiếng Anh chêm vào, xấu đi trên dev (21,83% → 22,41%), vì mình đang ép cả câu về một ngôn ngữ. Bản sửa weight thì chỉ nghiêng model về tiếng Việt, không khóa cứng.
+
+**Con số thiết kế khác con số thực tế.** Công thức được đặt để cộng +7 logit tại trạng thái trung bình. Đo trên 16 mẫu audio thật, mức cộng chỉ từ +0,31 đến +0,84, trung bình +0,51. Lúc đầu nhìn số +7 mình cũng tưởng nó mạnh lắm.
+
+:::tip[Điều mình mang về]
+Bản sửa tốt nhất không phải bản có câu chuyện hay nhất. Neuron 128 thú vị hơn nhiều, nhưng thứ qua được test lại là một hàng weight rất "chán" ở cuối model.
+:::
+
+Nếu là bạn, bạn sẽ chọn một dòng `language="Vietnamese"` hay sửa thẳng vào weight? 🙌
+
+---
+
+### Nguồn tham khảo
+
+- Model: https://huggingface.co/Qwen/Qwen3-ASR-0.6B
+- Weight-space programming: https://rikiyat.github.io/blog/weight-space-programming/
+
+***
+
+**Nam Nam** | *Blogger*
